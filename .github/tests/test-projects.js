@@ -52,24 +52,34 @@ async function interactWithChatGPT(prompt) {
 
 // Export the results to Google Sheets
 async function exportToGoogleSheets(results) {
-  const apiKey = process.env.GOOGLE_API_KEY;
+  console.log({ results });
+
+  const auth = new google.auth.GoogleAuth({
+    credentials: process.env.GOOGLE_CREDENTIALS,
+    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+  });
+
+  const client = await auth.getClient();
+  const sheets = google.sheets({ version: 'v4', auth: client });
+
   const spreadsheetId = '1P3o-dmyMex3yLp5M3kM7gAvG2xvyh-ii2MnBoPnrGS4';
   const range = 'Sheet1!A:K';
 
-  const data = {
-    values: [results],
-  };
+  try {
+    const response = await sheets.spreadsheets.values.append({
+      spreadsheetId: spreadsheetId,
+      range: range,
+      valueInputOption: 'USER_ENTERED',
+      resource: {
+        values: [results],
+      },
+    });
 
-  const options = {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify(data),
-  };
-
-  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}:append?valueInputOption=USER_ENTERED`, options);
+    console.log('Results exported to Google Sheets:', response.data);
+  } catch (error) {
+    console.error('Error exporting results to Google Sheets:', error);
+    throw error; // Rethrow the error to handle it at the top-level
+  }
 }
 
 // Get the current GMT+7 date and time
