@@ -25,30 +25,26 @@ async function interactWithChatGPT(prompt) {
     },
   };
 
-  const response = await new Promise((resolve, reject) => {
-    const req = https.request('https://api.openai.com/v1/engines/davinci-codex/completions', options, (res) => {
-      let data = '';
-      res.on('data', (chunk) => {
-        data += chunk;
-      });
-      res.on('end', () => {
-        resolve(data);
-      });
+  async function interactWithChatGPT(prompt) {
+    const apiKey = process.env.OPENAI_API_KEY;
+    const response = await fetch('https://api.openai.com/v1/engines/davinci-codex/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        prompt: prompt,
+        max_tokens: 100,
+        temperature: 0.7
+      })
     });
-
-    req.on('error', (error) => {
-      reject(error);
-    });
-
-    req.write(data.toString());
-    req.end();
-  });
-
-  const jsonData = JSON.parse(response);
-  const chatGPTResponse = jsonData.choices[0].text.trim();
-
-  return chatGPTResponse;
-}
+  
+    const data = await response.json();
+    const chatGPTResponse = data.choices[0].text.trim();
+  
+    return chatGPTResponse;
+  }
 
 // Export the results to Google Sheets
 async function exportToGoogleSheets(results) {
