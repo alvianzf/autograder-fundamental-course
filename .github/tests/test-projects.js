@@ -10,41 +10,24 @@ function readFile(filePath) {
 // Interact with ChatGPT and get the response
 async function interactWithChatGPT(prompt) {
   const apiKey = process.env.OPENAI_API_KEY;
-
-  const data = new URLSearchParams({
-    prompt: prompt,
-    max_tokens: 100,
-    temperature: 0.7,
-  });
-
-  const options = {
+  const response = await fetch('https://api.openai.com/v1/engines/davinci-codex/completions', {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
     },
-  };
+    body: JSON.stringify({
+      prompt: prompt,
+      max_tokens: 100,
+      temperature: 0.7
+    })
+  });
 
-  async function interactWithChatGPT(prompt) {
-    const apiKey = process.env.OPENAI_API_KEY;
-    const response = await fetch('https://api.openai.com/v1/engines/davinci-codex/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        prompt: prompt,
-        max_tokens: 100,
-        temperature: 0.7
-      })
-    });
-  
-    const data = await response.json();
-    const chatGPTResponse = data.choices[0].text.trim();
-  
-    return chatGPTResponse;
-  }
+  const data = await response.json();
+  const chatGPTResponse = data.choices[0].text.trim();
+
+  return chatGPTResponse;
+}
 
 // Export the results to Google Sheets
 async function exportToGoogleSheets(results) {
