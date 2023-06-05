@@ -24,21 +24,21 @@ jobs:
       # - name: Install dependencies
       #   run: npm ci
 
-      - name: Retrieve Collaborators
-        id: collaborators
-        uses: actions/github-script@v5
-        with:
-          script: |
-            const response = await github.repos.listCollaborators({
-              owner: context.repo.owner,
-              repo: context.repo.repo
-            });
-            const collaborators = response.data.map(collaborator => collaborator.login);
-            console.log(collaborators.join('\n'));
-          result-encoding: string
+      # - name: Retrieve Collaborators
+      #   id: collaborators
+      #   uses: actions/github-script@v5
+      #   with:
+      #     script: |
+      #       const response = await github.repos.listCollaborators({
+      #         owner: context.repo.owner,
+      #         repo: context.repo.repo
+      #       });
+      #       const collaborators = response.data.map(collaborator => collaborator.login);
+      #       console.log(collaborators.join('\n'));
+      #     result-encoding: string
 
-      - name: Set Secret Variable
-        run: echo "::set-secret name=COLLABORATORS::${{ steps.collaborators.outputs.result }}"
+      # - name: Set Secret Variable
+      #   run: echo "::set-secret name=COLLABORATORS::${{ steps.collaborators.outputs.result }}"
 
       - name: Run tests
         if: success()
