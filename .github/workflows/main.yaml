@@ -12,8 +12,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
-        with:
-          ref: v2.x # Update to the latest version of actions/checkout
 
       - name: Setup Node.js
         uses: actions/setup-node@v2
