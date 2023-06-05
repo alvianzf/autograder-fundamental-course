@@ -1,75 +1,97 @@
 const fs = require('fs');
-const https = require('https');
-const { URLSearchParams } = require('url');
+const path = require('path');
+const { google } = require('googleapis');
+const fetch = require('node-fetch');
 
 // Read the contents of a file
 function readFile(filePath) {
   return fs.readFileSync(filePath, 'utf-8');
 }
 
+// Check if the required files and folder structure exist
+function checkFileStructure() {
+  const indexHTMLPath = path.join(__dirname, 'index.html');
+  const jsFolderPath = path.join(__dirname, 'js');
+  const scriptJSPath = path.join(jsFolderPath, 'script.js');
+  const cssFolderPath = path.join(__dirname, 'css');
+  const styleCSSPath = path.join(cssFolderPath, 'style.css');
+
+  const isIndexHTMLExist = fs.existsSync(indexHTMLPath);
+  const isScriptJSExist = fs.existsSync(scriptJSPath);
+  const isStyleCSSExist = fs.existsSync(styleCSSPath);
+
+  return {
+    indexHTML: isIndexHTMLExist,
+    scriptJS: isScriptJSExist,
+    styleCSS: isStyleCSSExist,
+  };
+}
+
 // Interact with ChatGPT and get the response
+// async function interactWithChatGPT(prompt) {
+//   const apiKey = process.env.OPENAI_API_KEY;
+//   const response = await fetch('https://api.openai.com/v1/engines/davinci-codex/completions', {
+//     method: 'POST',
+//     headers: {
+//       'Content-Type': 'application/json',
+//       'Authorization': `Bearer ${apiKey}`
+//     },
+//     body: JSON.stringify({
+//       prompt: prompt,
+//       max_tokens: 100,
+//       temperature: 0.7
+//     })
+//   });
+
+//   const data = await response.json();
+//   const chatGPTResponse = data.choices[0].text.trim();
+
+//   return chatGPTResponse;
+// }
 async function interactWithChatGPT(prompt) {
   const apiKey = process.env.OPENAI_API_KEY;
-
-  const data = new URLSearchParams({
-    prompt: prompt,
-    max_tokens: 100,
-    temperature: 0.7,
-  });
-
-  const options = {
+  const response = await fetch('https://api.openai.com/v1/engines/davinci-codex/completions', {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
     },
-  };
-
-  const response = await new Promise((resolve, reject) => {
-    const req = https.request('https://api.openai.com/v1/engines/davinci-codex/completions', options, (res) => {
-      let data = '';
-      res.on('data', (chunk) => {
-        data += chunk;
-      });
-      res.on('end', () => {
-        resolve(data);
-      });
-    });
-
-    req.on('error', (error) => {
-      reject(error);
-    });
-
-    req.write(data.toString());
-    req.end();
+    body: JSON.stringify({
+      prompt: prompt,
+      max_tokens: 100,
+      temperature: 0.7
+    })
   });
 
-  const jsonData = JSON.parse(response);
-  const chatGPTResponse = jsonData.choices[0].text.trim();
+  const data = await response.json();
+  const chatGPTResponse = data.choices[0].text.trim();
 
   return chatGPTResponse;
 }
 
 // Export the results to Google Sheets
 async function exportToGoogleSheets(results) {
-  const apiKey = process.env.GOOGLE_API_KEY;
+  console.log({results})
+
+  const auth = new google.auth.GoogleAuth({
+    credentials: process.env.GOOGLE_CREDENTIALS,
+    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+  });
+
+  const client = await auth.getClient();
+  const sheets = google.sheets({ version: 'v4', auth: client });
+
   const spreadsheetId = '1P3o-dmyMex3yLp5M3kM7gAvG2xvyh-ii2MnBoPnrGS4';
   const range = 'Sheet1!A:K';
 
-  const data = {
-    values: [results],
-  };
-
-  const options = {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: spreadsheetId,
+    range: range,
+    valueInputOption: 'USER_ENTERED',
+    resource: {
+      values: [results],
     },
-    body: JSON.stringify(data),
-  };
-
-  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}:append?valueInputOption=USER_ENTERED`, options);
+  });
 }
 
 // Get the current GMT+7 date and time
@@ -84,14 +106,7 @@ function getCurrentDateTime() {
 }
 
 async function runTests() {
-  const indexHTMLPath = './index.html';
-  const scriptJSPath = './js/script.js';
-  const styleCSSPath = './css/style.css';
-
-  const isIndexHTMLExist = fs.existsSync(indexHTMLPath);
-  const isScriptJSExist = fs.existsSync(scriptJSPath);
-  const isStyleCSSExist = fs.existsSync(styleCSSPath);
-
+  const { indexHTML, scriptJS, styleCSS } = checkFileStructure();
   const { date, time } = getCurrentDateTime();
 
   const username = process.env.GITHUB_ACTOR;
@@ -102,7 +117,7 @@ async function runTests() {
     repoUrl,
     date,
     time,
-    isIndexHTMLExist ? '1' : '0', // File structure
+    indexHTML ? '1' : '0', // File structure
     '', // Functions running well
     '', // Feedback for functions
     '', // Naming
@@ -113,8 +128,8 @@ async function runTests() {
   ];
 
   // Test functions running well
-  if (isScriptJSExist) {
-    const jsContent = readFile(scriptJSPath);
+  if (scriptJS) {
+    const jsContent = readFile('js/script.js');
     const promptFunctions = `Will this script have any errors? Answer with 1 if it will run correctly, and 0 if not. Answer only in 1 or 0.\n\n${jsContent}`;
 
     const functionsResponse = await interactWithChatGPT(promptFunctions);
@@ -122,8 +137,8 @@ async function runTests() {
   }
 
   // Test feedback for functions
-  if (isScriptJSExist) {
-    const jsContent = readFile(scriptJSPath);
+  if (scriptJS) {
+    const jsContent = readFile('js/script.js');
     const promptFeedback = `What's your feedback to optimize this code?\n\n${jsContent}`;
 
     const feedbackResponse = await interactWithChatGPT(promptFeedback);
@@ -131,8 +146,8 @@ async function runTests() {
   }
 
   // Test naming
-  if (isScriptJSExist) {
-    const jsContent = readFile(scriptJSPath);
+  if (scriptJS) {
+    const jsContent = readFile('js/script.js');
     const promptNaming = `Is this JavaScript code well-named? Answer with 1 if it has good naming, and 0 if it's not. Answer only in 1 or 0.\n\n${jsContent}`;
 
     const namingResponse = await interactWithChatGPT(promptNaming);
@@ -140,8 +155,8 @@ async function runTests() {
   }
 
   // Test feedback for naming
-  if (isScriptJSExist) {
-    const jsContent = readFile(scriptJSPath);
+  if (scriptJS) {
+    const jsContent = readFile('js/script.js');
     const promptFeedbackNaming = `What's your feedback about the naming of this JavaScript code?\n\n${jsContent}`;
 
     const feedbackNamingResponse = await interactWithChatGPT(promptFeedbackNaming);
@@ -149,8 +164,8 @@ async function runTests() {
   }
 
   // Test CSS
-  if (isStyleCSSExist) {
-    const cssContent = readFile(styleCSSPath);
+  if (styleCSS) {
+    const cssContent = readFile('css/style.css');
     const promptCSS = `Is this CSS code well-written? Answer with 1 if it is, and 0 if it's not. Answer only in 1 or 0.\n\n${cssContent}`;
 
     const cssResponse = await interactWithChatGPT(promptCSS);
